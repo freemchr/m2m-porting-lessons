@@ -180,10 +180,12 @@ did must be redone in the M2M firmware or in hardware.
 * `f32_mnt_sd` accepts only an MBR whose partition 1 has the type `0x0B` or `0x0C` (FAT32). A card
   that is FAT32 inside but has the type `0x07` (left over from an exFAT format) gives "Cannot mount
   the SD card", although Windows reads it fine (MegaZXNext, real ZX Next card, R3 and R6). Tell
-  users in the README to format with the SD Association's
-  [SD Card Formatter](https://www.sdcard.org/downloads/formatter/) (cards up to 32 GB; larger cards
-  become exFAT), and how to repair the type without data loss (PowerShell
+  users how to repair the type without data loss (PowerShell
   `Set-Partition -DiskNumber N -PartitionNumber 1 -MbrType 12`, or diskpart `set id=0C override`).
+  For a separate card of another machine (like a real ZX Next card) the SD Association's
+  [SD Card Formatter](https://www.sdcard.org/downloads/formatter/) is a good recommendation (cards up
+  to 32 GB; larger cards become exFAT). Never tell users to reformat the MEGA65's own SD card: the
+  MEGA65 prepares it itself, including its hidden system partition, which a reformat erases.
   A "Cannot mount" message that shows the partition type found would save testers a lot of time.
 
 
