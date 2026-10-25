@@ -87,6 +87,22 @@ did must be redone in the M2M firmware or in hardware.
 * **Menu heap**: a bigger menu needs a bigger `MENU_HEAP_SIZE` in `m2m-rom.asm`; too small gives
   "Heap corruption: Hint: OPTM_HEAP_SIZE" or a crash when the help opens. `HEAP_SIZE` must shrink by
   the same amount. Check the sum after every menu or firmware change.
+* **Never touch the menu while it is closed.** `OPTM_SET` and `M2M$FORCE_MENU` stop the core with
+  "menu.asm: OPTM_RUN is not running / OPTM_STRUCT is invalid" (error 0003) when the menu is not
+  open, e.g. in a `CORE_LOOP` or `OSM_SEL_POST` path that runs later. Change the setting bit with
+  `M2M$SET_SETTING` instead: the menu rebuilds its marks from these bits each time it opens.
+* **A choice that restarts or switches the machine should close the menu at once.** Otherwise the
+  user can choose more items while the machine is half switched (MegaST locked up when the TOS was
+  changed during an ST -> Falcon switch). MegaST added a close request to `menu.asm`
+  (`OPTM_CLOSE_REQ`, set by the select callback; documented as a framework change).
+* **Two machines in one core:** split the menu per machine ("ST/STe settings", "Falcon030
+  settings") plus shared pages ("Drives & images", "Controllers & ports"), so no page passes the 23
+  lines. When the menu size changes, give the settings file a **new name** (MegaST: `stcfg` ->
+  `fccfg`): the old file stays valid for the old version, and users cannot mix them up.
+* **ROMs per machine:** let each machine auto-load its own system ROM and remember a manually chosen
+  one per machine (one more entry in the remembered-images file). Check the ROM size before loading
+  and refuse a ROM the machine cannot run with a message (`PREP_LOAD_IMAGE` can return an error
+  code and text; M2M's `shell.asm` needed a small change to print a text from the ROM).
 
 ### 3.2 Bugs in M2M V2.0.1
 
@@ -246,6 +262,16 @@ Every hardware round trip costs time (build, copy to SD, test, describe). Simula
   with a small Tcl script and map addresses to the firmware listing (`m2m-rom.lis`). This found the
   `ROSM_SAVE` freeze in one session.
 * Load test bitstreams over JTAG (volatile) instead of flashing `.cor` files.
+  A JTAG-loaded core is gone after a power cycle, and the core reads the SD card when it starts:
+  load it again after every power cycle and only when the card is in.
+* **Bisect a guest software problem with patched copies of the user's disk image.** When a program
+  on the user's own hard disk image fails (MegaST: FreeMiNT's XaAES desktop turned the screen
+  white), copy the image to the PC, read its files with a small FAT reader, and give the tester
+  copies that differ in one byte or one line each (same file sizes, change checked by reading it
+  back): no video mode change, no NVDI, no desktop (text shell), the ROM desktop instead. Four
+  boots isolated the program at fault. Notes: Atari IDE images can be stored byte-swapped per
+  16-bit word (the partition table only parses after swapping); a log file the guest OS writes
+  may never reach the disk before a hang (write-back cache), so don't rely on it.
 * `mega65_ftp` copies files to/from the SD card over the JTAG serial port, but only while the
   MEGA65 runs its native core (boot the factory slot).
 
@@ -260,6 +286,13 @@ Every hardware round trip costs time (build, copy to SD, test, describe). Simula
 * An `AGENTS.md`/`CLAUDE.md` with the rules of the project (menu ripple, memory limits, Vivado bugs,
   board list) keeps AI assistants from repeating old mistakes.
 * File headers follow the M2M template (based on ..., powered by MiSTer2MEGA65, port by ...).
+* **Describe the origin of imported code accurately, in both directions.** When a second machine
+  comes from another project and the MEGA65 version needed a lot of new engineering (MegaST's
+  Falcon030: SDRAM controller, FPU on a RISC-V in the FPGA, MEGA65 integration, menu, machine
+  switching, TOS handling, fixes), a plain "based on X by Y" undersells the port. Dropping the
+  origin misstates it. Measure first (upstream lines vs. changed lines, what is new), then write
+  what the port built and, in one line, where the CPU and chipset come from. Keep the upstream
+  copyright notices in the files (GPL), and agree the wording with the maintainer before release.
 * **Release zip**: the `.cor` per board, a README, the core folder with the free ROM, its licence and
   the settings files (correct size, all `0xFF`), plus any other file the firmware needs.
 * **Boards**: R6 and R4/R5 differ in pinout (separate `.cor`), R3/R3A needs its own memory variant.
